@@ -1,101 +1,111 @@
-import Image from "next/image";
+﻿"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
+import AIChat from "@/components/AIChat";
+import ProductInfo from "@/components/modules/ProductInfo";
+import GameplayAnalysis from "@/components/modules/GameplayAnalysis";
+import DataAndUsers from "@/components/modules/DataAndUsers";
+import Monetization from "@/components/modules/Monetization";
+import PlayerFeedback from "@/components/modules/PlayerFeedback";
+import CompetitiveMatrix from "@/components/modules/CompetitiveMatrix";
+import StrategyInsights from "@/components/modules/StrategyInsights";
+import { useActiveSection } from "@/hooks/useActiveSection";
+import { GameIndexItem, GameAnalysis, SectionId } from "@/types";
+
+const SECTION_IDS: SectionId[] = [
+  "productInfo",
+  "gameplay",
+  "dataAndUsers",
+  "monetization",
+  "playerFeedback",
+  "competitiveMatrix",
+  "strategyInsights",
+];
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [games, setGames] = useState<GameIndexItem[]>([]);
+  const [selectedGameId, setSelectedGameId] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [gameData, setGameData] = useState<GameAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { activeSection, scrollTo } = useActiveSection(SECTION_IDS);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+  useEffect(() => {
+    fetch("/data/games.json")
+      .then((res) => res.json())
+      .then((data: GameIndexItem[]) => {
+        setGames(data);
+        if (data.length > 0) {
+          setSelectedGameId(data[0].id);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const loadGameData = useCallback(async (id: string) => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/data/games/${id}.json`);
+      const data: GameAnalysis = await res.json();
+      setGameData(data);
+    } catch (e) {
+      console.error("加载游戏数据失败:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedGameId) {
+      loadGameData(selectedGameId);
+    }
+  }, [selectedGameId, loadGameData]);
+
+  const handleSelectGame = (id: string) => {
+    setSelectedGameId(id);
+  };
+
+  const handleNavigate = (id: SectionId) => {
+    scrollTo(id);
+  };
+
+  return (
+    <>
+      <Navbar
+        games={games}
+        selectedGameId={selectedGameId}
+        onSelectGame={handleSelectGame}
+        onOpenAI={() => setAiOpen(true)}
+      />
+
+      <Sidebar activeSection={activeSection} onNavigate={handleNavigate} />
+
+      <main className="mx-auto max-w-3xl px-4 pt-20 pb-32 lg:ml-52">
+        {loading || !gameData ? (
+          <div className="flex h-64 items-center justify-center">
+            <p className="text-muted-foreground animate-pulse">加载分析数据中...</p>
+          </div>
+        ) : (
+          <>
+            <ProductInfo data={gameData.productInfo} />
+            <GameplayAnalysis data={gameData.gameplay} />
+            <DataAndUsers data={gameData.dataAndUsers} />
+            <Monetization data={gameData.monetization} />
+            <PlayerFeedback data={gameData.playerFeedback} />
+            <CompetitiveMatrix data={gameData.competitiveMatrix} />
+            <StrategyInsights data={gameData.strategyInsights} />
+          </>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+      <AIChat
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        activeModule={activeSection}
+      />
+    </>
   );
 }
