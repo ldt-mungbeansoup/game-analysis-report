@@ -13,13 +13,13 @@ import Monetization from "@/components/modules/Monetization";
 import PlayerFeedback from "@/components/modules/PlayerFeedback";
 import CompetitiveMatrix from "@/components/modules/CompetitiveMatrix";
 import StrategyInsights from "@/components/modules/StrategyInsights";
-import { BasicInfo, GameAnalysis, HistoryItem } from "@/types";
+import { BasicInfo, GameAnalysis, HistoryItem, ModuleId } from "@/types";
 import { addHistory } from "@/lib/storage";
 import { downloadPDF } from "@/lib/pdf";
 import { downloadMarkdown } from "@/lib/markdown";
 import { Download, FileText, Save, Loader2 } from "lucide-react";
 
-type Phase = "input" | "confirming" | "generating" | "done";
+type Phase = "input" | "confirming" | "outlining" | "expanding" | "done";
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("input");
@@ -30,6 +30,8 @@ export default function Home() {
   const [err, setErr] = useState("");
   const [hiOpen, setHiOpen] = useState(false);
   const [ld, setLd] = useState(false);
+  const [expandProgress, setExpandProgress] = useState({ done: 0, total: 7 });
+  const [expandFailures, setExpandFailures] = useState<string[]>([]);
 
   const hSubmit = async (name: string, custom: string) => {
     setGameName(name); setCustomPrompt(custom); setErr(""); setPhase("confirming"); setLd(true);
@@ -43,19 +45,56 @@ export default function Home() {
   };
 
   const hConfirm = async () => {
-    setPhase("generating"); setErr(""); setResult(null);
+    setErr(""); setResult(null);
+
+    // ---- Stage 1: Outline ----
+    setPhase("outlining");
+    let outline: Record<string, string> = {};
     try {
-      const r = await fetch("/api/analyze", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName, customPrompt}) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error||"Analysis failed");
-      if (d.error) throw new Error(d.error);
-      const keys = Object.keys(d||{});
-      const hasData = ["productInfo","gameplay","dataAndUsers","monetization","playerFeedback","competitiveMatrix","strategyInsights"].some(k=>keys.includes(k));
-      if (!hasData) throw new Error("AI returned incomplete data. Please retry.");
-      setResult(d as GameAnalysis);
-      setPhase("done");
-      try { addHistory(gameName, d as GameAnalysis, customPrompt); } catch{}
-    } catch(e: any) { console.error(e); setErr(e.message||"Analysis failed"); }
+      const r1 = await fetch("/api/analyze/outline", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName, customPrompt}) });
+      const d1 = await r1.json();
+      if (!r1.ok) throw new Error(d1.error||"Outline failed");
+      if (d1.error) throw new Error(d1.error);
+      outline = d1;
+    } catch(e: any) { console.error(e); setErr("Outline: " + (e.message||"failed")); return; }
+
+    // ---- Stage 2: Expand 7 modules in parallel ----
+    setPhase("expanding");
+    setExpandProgress({ done: 0, total: 7 });
+    setExpandFailures([]);
+
+    const moduleIds: ModuleId[] = ["productInfo","gameplay","dataAndUsers","monetization","playerFeedback","competitiveMatrix","strategyInsights"];
+    const expanded: Partial<GameAnalysis> = {};
+    let hasAnyFailure = false;
+    const failures: string[] = [];
+
+    const expandOne = async (id: ModuleId) => {
+      try {
+        const outlineText = typeof outline[id] === "string" ? outline[id] : JSON.stringify(outline[id]||{});
+        const r = await fetch("/api/analyze/expand", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ moduleId: id, gameName, outline: outlineText, customPrompt }) });
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.error||"Expand failed");
+        if (d.data) (expanded as any)[id] = d.data;
+      } catch(e: any) {
+        hasAnyFailure = true;
+        failures.push(id + ": " + (e.message||"unknown"));
+      } finally {
+        setExpandProgress(p => ({ ...p, done: p.done + 1 }));
+      }
+    };
+
+    await Promise.all(moduleIds.map(expandOne));
+
+    if (hasAnyFailure) {
+      setExpandFailures(failures);
+      setErr("Some modules failed: " + failures.join(", "));
+      return;
+    }
+
+    const finalResult = expanded as GameAnalysis;
+    setResult(finalResult);
+    setPhase("done");
+    try { addHistory(gameName, finalResult, customPrompt); } catch{}
   };
 
   const hRetry = () => { setPhase("input"); setBasicInfo(null); setErr(""); };
@@ -77,22 +116,36 @@ export default function Home() {
             : basicInfo ? (<ConfirmCard info={basicInfo} onConfirm={hConfirm} onRetry={hRetry} loading={false} />) : null}
           </motion.div>)}
 
-        {phase === "generating" && (
-          <motion.div key="gen" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 px-4">
+        {phase === "outlining" && (
+          <motion.div key="outline" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 px-4">
+            <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-32">
+              <Loader2 className="h-10 w-10 animate-spin text-[#007AFF] mb-4" />
+              <p className="text-[#86868b] text-base">Generating report outline...</p>
+              <p className="text-[#aeaeb2] text-sm mt-1">Structuring 7-module analysis framework</p>
+              {err && (<><p className="text-[#ff3b30] text-sm mt-4 mb-3">{err}</p><button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry</button></>)}
+            </div>
+          </motion.div>)}
+
+        {phase === "expanding" && (
+          <motion.div key="expand" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 px-4">
             <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-32">
               {!err ? (<>
                 <Loader2 className="h-10 w-10 animate-spin text-[#007AFF] mb-4" />
-                <p className="text-[#86868b] text-base">AI is analyzing {gameName}...</p>
-                <p className="text-[#aeaeb2] text-sm mt-1">Generating 7-module analysis report, please wait</p>
+                <p className="text-[#86868b] text-base">Deep analyzing {gameName}...</p>
+                <p className="text-[#aeaeb2] text-sm mt-1">Module {expandProgress.done}/{expandProgress.total} completed</p>
+                <div className="w-48 h-1.5 bg-[#e5e5ea] rounded-full mt-4 overflow-hidden">
+                  <div className="h-full bg-[#007AFF] rounded-full transition-all duration-300" style={{width: Math.round(expandProgress.done/expandProgress.total*100) + "%"}} />
+                </div>
               </>) : (<>
                 <p className="text-[#ff3b30] text-sm mb-4">{err}</p>
                 <div className="flex gap-3">
-                  <button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry</button>
+                  <button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry All</button>
                   <button onClick={hRetry} className="rounded-full bg-[#f5f5f7] px-5 py-2 text-sm font-medium text-[#1d1d1f]">Back</button>
                 </div>
               </>)}
             </div>
           </motion.div>)}
+
 
         {phase === "done" && result && (
           <motion.div key="done" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 pb-32 px-4">
