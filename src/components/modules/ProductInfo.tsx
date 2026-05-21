@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { ProductInfoData } from "@/types";
+import { safeArray, safeString } from "@/lib/safe";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
@@ -25,9 +26,9 @@ export default function ProductInfo({ data }: Props) {
       <section id="productInfo" className="mb-16 scroll-mt-20">
         <h2 className="mb-6 text-2xl font-bold text-[#1d1d1f]">① 产品信息层</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <InfoCard label="开发商" value={data.developer} />
-          <InfoCard label="发行商" value={data.publisher} />
-          <InfoCard label="上线时间" value={data.releaseDate} />
+          <InfoCard label="开发商" value={safeString(data.developer)} />
+          <InfoCard label="发行商" value={safeString(data.publisher)} />
+          <InfoCard label="上线时间" value={safeString(data.releaseDate)} />
           <InfoCard
             label="生命周期"
             value={
@@ -36,12 +37,12 @@ export default function ProductInfo({ data }: Props) {
               </Badge>
             }
           />
-          <InfoCard label="支持平台" value={(data.platforms||[]).join(" / ")} />
-          <InfoCard label="IP 背景" value={data.ipBackground} />
+          <InfoCard label="支持平台" value={safeArray(data.platforms).join(" / ")} />
+          <InfoCard label="IP 背景" value={safeString(data.ipBackground)} />
         </div>
         <div className="mt-4 rounded-2xl border border-[#e5e5ea] bg-white p-4">
           <h3 className="mb-2 text-sm font-semibold text-[#86868b]">开发团队背景</h3>
-          <p className="text-sm leading-relaxed text-[#1d1d1f]">{data.teamBackground}</p>
+          <p className="text-sm leading-relaxed text-[#1d1d1f]">{safeString(data.teamBackground)}</p>
         </div>
       </section>
     </motion.div>

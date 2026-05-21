@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { PlayerFeedbackData } from "@/types";
+import { safeArray } from "@/lib/safe";
 import { motion } from "framer-motion";
 import {
   LineChart,

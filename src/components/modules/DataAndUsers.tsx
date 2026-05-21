@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import type { DataAndUsersData } from "@/types";
+import { safeArray } from "@/lib/safe";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,

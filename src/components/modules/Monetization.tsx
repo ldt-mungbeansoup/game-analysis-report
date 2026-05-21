@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { MonetizationData } from "@/types";
+import { safeArray, safeString } from "@/lib/safe";
 import { motion } from "framer-motion";
 
 interface Props {
@@ -9,13 +10,13 @@ interface Props {
 
 export default function Monetization({ data }: Props) {
   const items: [string, string][] = [
-    ["付费模式", (data.paymentModel||[]).join(" / ")],
-    ["定价策略", data.pricingStrategy],
-    ["Battle Pass", data.battlePass],
-    ["抽卡机制", data.gacha],
-    ["活动节奏", data.eventCadence],
-    ["订阅制", data.subscription],
-    ["广告变现", data.ads],
+    ["付费模式", safeArray(data.paymentModel).join(" / ")],
+    ["定价策略", safeString(data.pricingStrategy)],
+    ["Battle Pass", safeString(data.battlePass)],
+    ["抽卡机制", safeString(data.gacha)],
+    ["活动节奏", safeString(data.eventCadence)],
+    ["订阅制", safeString(data.subscription)],
+    ["广告变现", safeString(data.ads)],
   ];
 
   return (
