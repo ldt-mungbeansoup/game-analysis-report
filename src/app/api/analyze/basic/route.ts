@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          { role: "system", content: "Search the web and return basic game info as JSON. Keys: name, developer, publisher, releaseDate, platforms (array), ipBackground, lifecycle (one of: rising/stable/declining), teamBackground. Reply with only the JSON object, no extra text." },
+          { role: "system", content: "Search the web and return basic game info as JSON in Chinese. Keys: name, developer, publisher, releaseDate, platforms (array), ipBackground, lifecycle (one of: rising/stable/declining), teamBackground. All string values must be in Chinese. Reply with only the JSON object, no extra text." },
           { role: "user", content: "Search for game: " + gameName },
         ],
         max_tokens: 2048,
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const json = m ? JSON.parse(m[0]) : { name: gameName, developer: "unknown", publisher: "unknown", releaseDate: "unknown", platforms: [], ipBackground: "unknown", lifecycle: "stable", teamBackground: "No info found" };
     return new Response(JSON.stringify(json), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") {
+    if (e instanceof Error && e.name === "AbortError") {
       return r(504, "Request timed out, please try again");
     }
     return r(500, "Internal error");

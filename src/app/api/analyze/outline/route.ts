@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: "system",
-              content: "You are a senior game analyst. Generate a structured outline for a competitive analysis report. Return a JSON object with 7 keys: productInfo, gameplay, dataAndUsers, monetization, playerFeedback, competitiveMatrix, strategyInsights. Each key contains a BRIEF summary (1-2 sentences each), enough to guide a deeper analysis. The outline should map to the game: " + gameName + ". Reply with ONLY the JSON object, no markdown, no explanation."
+              content: "You are a senior game analyst. Generate a structured outline for a competitive analysis report in Chinese. Return a JSON object with 7 keys: productInfo, gameplay, dataAndUsers, monetization, playerFeedback, competitiveMatrix, strategyInsights. Each key contains a BRIEF summary in Chinese (1-2 sentences each), enough to guide a deeper analysis. All strings must be in Chinese. The outline should map to the game: " + gameName + ". Reply with ONLY the JSON object, no markdown, no explanation."
             },
             { role: "user", content: sysPrompt },
           ],
