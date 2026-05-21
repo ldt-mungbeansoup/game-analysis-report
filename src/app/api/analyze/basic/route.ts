@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
 const BASE = "https://api.deepseek.com/v1";
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       signal: ctrl.signal,
     });
 
-    if (!res.ok) { const e = await res.json().catch(() => ({})); const msg = typeof (e as Record<string,unknown>).error === "string" ? (e as Record<string,unknown>).error as string : "AI API error (" + res.status + ")"; return r(502, "DeepSeek: " + msg); }
+    if (!res.ok) { const txt = await res.text(); return r(502, "DeepSeek " + res.status + ": " + txt.slice(0, 200)); }
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || "{}";
     const m = content.match(/\{[\s\S]*\}/);
