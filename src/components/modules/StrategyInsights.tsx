@@ -65,7 +65,7 @@ export default function StrategyInsights({ data }: Props) {
           title="市场机会"
           borderColor="border-l-4 border-l-green-500"
           bgColor="bg-green-500/5"
-          content={data.marketOpportunity}
+          content={data.marketOpportunity||"-"}
         />
 
         {/* 差异化建议 */}
@@ -74,7 +74,7 @@ export default function StrategyInsights({ data }: Props) {
           title="差异化建议"
           borderColor="border-l-4 border-l-blue-500"
           bgColor="bg-blue-500/5"
-          content={data.differentiation}
+          content={data.differentiation||[]}
         />
 
         {/* 趋势方向 */}
@@ -83,7 +83,7 @@ export default function StrategyInsights({ data }: Props) {
           title="趋势方向"
           borderColor="border-l-4 border-l-purple-500"
           bgColor="bg-purple-500/5"
-          content={data.trendDirection}
+          content={data.trendDirection||[]}
         />
 
         {/* 风险预警 */}
@@ -92,7 +92,7 @@ export default function StrategyInsights({ data }: Props) {
           title="风险预警"
           borderColor="border-l-4 border-l-red-500"
           bgColor="bg-red-500/5"
-          content={data.riskWarnings}
+          content={data.riskWarnings||[]}
         />
 
         {/* 资源评估 */}
@@ -101,7 +101,7 @@ export default function StrategyInsights({ data }: Props) {
           title="资源评估"
           borderColor="border-l-4 border-l-amber-500"
           bgColor="bg-amber-500/5"
-          content={data.resourceEstimation}
+          content={data.resourceEstimation||"-"}
         />
       </div>
     </section>

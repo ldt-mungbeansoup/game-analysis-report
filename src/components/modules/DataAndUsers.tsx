@@ -91,29 +91,27 @@ function BarChartCard({
 }
 
 export default function DataAndUsers({ data }: Props) {
-  const {
-    marketPerformance,
-    userProfile,
-    userSegmentation,
-    retention,
-    acquisition,
-  } = data;
+  const marketPerformance = data.marketPerformance || {} as any;
+  const userProfile = data.userProfile || {} as any;
+  const userSegmentation = data.userSegmentation || {} as any;
+  const retention = data.retention || {} as any;
+  const acquisition = data.acquisition || {} as any;
 
   const coreCasualData = [
-    { name: "核心玩家", value: userSegmentation.coreVsCasual.core },
-    { name: "泛用户", value: userSegmentation.coreVsCasual.casual },
+    { name: "核心玩家", value: (userSegmentation.coreVsCasual||{}).core||0 },
+    { name: "泛用户", value: (userSegmentation.coreVsCasual||{}).casual||0 },
   ];
 
   const paymentTierData = [
-    { name: "鲸鱼", value: userSegmentation.paymentTiers.whale },
-    { name: "海豚", value: userSegmentation.paymentTiers.dolphin },
-    { name: "小鱼", value: userSegmentation.paymentTiers.minnow },
-    { name: "免费", value: userSegmentation.paymentTiers.f2p },
+    { name: "鲸鱼", value: (userSegmentation.paymentTiers||{}).whale||0 },
+    { name: "海豚", value: (userSegmentation.paymentTiers||{}).dolphin||0 },
+    { name: "小鱼", value: (userSegmentation.paymentTiers||{}).minnow||0 },
+    { name: "免费", value: (userSegmentation.paymentTiers||{}).f2p||0 },
   ];
 
   const socialStyleData = [
-    { name: "社交型", value: userSegmentation.socialStyle.social },
-    { name: "独狼型", value: userSegmentation.socialStyle.solo },
+    { name: "社交型", value: (userSegmentation.socialStyle||{}).social||0 },
+    { name: "独狼型", value: (userSegmentation.socialStyle||{}).solo||0 },
   ];
 
   return (
@@ -125,7 +123,7 @@ export default function DataAndUsers({ data }: Props) {
       <SubSection title="市场表现">
         <div className="h-56 mb-4">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={marketPerformance.downloadsTrend}>
+            <LineChart data={(marketPerformance.downloadsTrend||[])}>
               <CartesianGrid stroke="#e5e5ea" strokeDasharray="3 3" />
               <XAxis
                 dataKey="month"
@@ -143,7 +141,7 @@ export default function DataAndUsers({ data }: Props) {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <MetricCard label="收入估算" value={marketPerformance.revenueEstimate} />
+        <MetricCard label="收入估算" value={marketPerformance.revenueEstimate||"-"} />
       </SubSection>
 
       {/* 用户画像 */}
@@ -155,7 +153,7 @@ export default function DataAndUsers({ data }: Props) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={userProfile.ageDistribution.map((item) => ({
+                  data={(userProfile.ageDistribution||[]).map((item) => ({
                     name: item.group,
                     value: item.percentage,
                   }))}
@@ -167,7 +165,7 @@ export default function DataAndUsers({ data }: Props) {
                   dataKey="value"
                   label={({ name, value }) => `${name} ${value}%`}
                 >
-                  {userProfile.ageDistribution.map((_, index) => (
+                  {(userProfile.ageDistribution||[]).map((_, index) => (
                     <Cell
                       key={`age-cell-${index}`}
                       fill={PIE_COLORS[index % PIE_COLORS.length]}
@@ -183,13 +181,13 @@ export default function DataAndUsers({ data }: Props) {
           <div className="flex items-center justify-center gap-8">
             <div className="text-center">
               <p className="text-3xl font-bold text-[#007AFF]">
-                {userProfile.genderRatio.male}%
+                {(userProfile.genderRatio||{}).male||0}%
               </p>
               <p className="text-xs text-[#86868b] mt-1">男性</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-[#ff6b9d]">
-                {userProfile.genderRatio.female}%
+                {(userProfile.genderRatio||{}).female||0}%
               </p>
               <p className="text-xs text-[#86868b] mt-1">女性</p>
             </div>
@@ -198,7 +196,7 @@ export default function DataAndUsers({ data }: Props) {
           {/* 地域分布进度条 */}
           <div className="space-y-3">
             <p className="text-xs text-[#86868b]">地域分布</p>
-            {userProfile.regionDistribution.map((item, index) => (
+            {(userProfile.regionDistribution||[]).map((item, index) => (
               <div key={item.region}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-[#86868b]">{item.region}</span>
@@ -233,21 +231,21 @@ export default function DataAndUsers({ data }: Props) {
         <div className="flex gap-4 mb-4">
           <div className="flex-1 border border-[#e5e5ea] bg-white rounded-2xl p-4 text-center">
             <p className="text-xs text-[#86868b] mb-1">次日留存</p>
-            <p className="text-xl font-bold text-[#007AFF]">{retention.d1}</p>
+            <p className="text-xl font-bold text-[#007AFF]">{retention.d1||"-"}</p>
           </div>
           <div className="flex-1 border border-[#e5e5ea] bg-white rounded-2xl p-4 text-center">
             <p className="text-xs text-[#86868b] mb-1">7日留存</p>
-            <p className="text-xl font-bold text-[#007AFF]">{retention.d7}</p>
+            <p className="text-xl font-bold text-[#007AFF]">{retention.d7||"-"}</p>
           </div>
           <div className="flex-1 border border-[#e5e5ea] bg-white rounded-2xl p-4 text-center">
             <p className="text-xs text-[#86868b] mb-1">30日留存</p>
-            <p className="text-xl font-bold text-[#007AFF]">{retention.d30}</p>
+            <p className="text-xl font-bold text-[#007AFF]">{retention.d30||"-"}</p>
           </div>
         </div>
         <div>
           <p className="text-xs text-[#86868b] mb-2">流失节点</p>
           <ul className="space-y-1">
-            {retention.churnNodes.map((node, i) => (
+            {(retention.churnNodes||[]).map((node, i) => (
               <li key={i} className="text-sm text-[#1d1d1f] flex items-start gap-2">
                 <span className="text-[#86868b] mt-0.5">•</span>
                 {node}
@@ -259,16 +257,16 @@ export default function DataAndUsers({ data }: Props) {
 
       {/* 获客 */}
       <SubSection title="获客策略">
-        <TagGroup label="买量平台" tags={acquisition.platforms} />
+        <TagGroup label="买量平台" tags={acquisition.platforms||[]} />
         <div className="mb-3">
           <p className="text-xs text-[#86868b] mb-1">素材风格</p>
-          <p className="text-sm text-[#1d1d1f]">{acquisition.creativeStyle}</p>
+          <p className="text-sm text-[#1d1d1f]">{acquisition.creativeStyle||"-"}</p>
         </div>
         <div className="mb-3">
           <p className="text-xs text-[#86868b] mb-1">KOL 策略</p>
-          <p className="text-sm text-[#1d1d1f]">{acquisition.kolStrategy}</p>
+          <p className="text-sm text-[#1d1d1f]">{acquisition.kolStrategy||"-"}</p>
         </div>
-        <TagGroup label="IP 联动" tags={acquisition.ipCollaborations} />
+        <TagGroup label="IP 联动" tags={acquisition.ipCollaborations||[]} />
       </SubSection>
     </section>
     </motion.div>

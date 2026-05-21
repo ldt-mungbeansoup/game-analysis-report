@@ -35,16 +35,16 @@ export default function GameplayAnalysis({ data }: Props) {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-sm text-[#3a3a3c]">{data.coreLoop}</p>
+          <p className="mt-4 text-sm text-[#3a3a3c]">{data.coreLoop||"-"}</p>
         </div>
 
         {([
-          { key: "mechanics", label: "操作机制", type: "list", content: data.mechanics },
-          { key: "progression", label: "成长体系", type: "text", content: data.progression },
-          { key: "contentStructure", label: "关卡/内容结构", type: "text", content: data.contentStructure },
-          { key: "socialSystem", label: "社交系统", type: "text", content: data.socialSystem },
-          { key: "onboarding", label: "新手引导", type: "text", content: data.onboarding },
-          { key: "ugcEcosystem", label: "UGC/社区生态", type: "text", content: data.ugcEcosystem },
+          { key: "mechanics", label: "操作机制", type: "list", content: data.mechanics||[] },
+          { key: "progression", label: "成长体系", type: "text", content: data.progression||"-" },
+          { key: "contentStructure", label: "关卡/内容结构", type: "text", content: data.contentStructure||"-" },
+          { key: "socialSystem", label: "社交系统", type: "text", content: data.socialSystem||"-" },
+          { key: "onboarding", label: "新手引导", type: "text", content: data.onboarding||"-" },
+          { key: "ugcEcosystem", label: "UGC/社区生态", type: "text", content: data.ugcEcosystem||"-" },
         ] as const).map((section) => (
           <details
             key={section.key}
@@ -57,7 +57,7 @@ export default function GameplayAnalysis({ data }: Props) {
             <div className="border-t border-[#e5e5ea] px-4 py-3 text-sm leading-relaxed text-[#1d1d1f]">
               {section.type === "list" && Array.isArray(section.content) ? (
                 <ul className="list-disc pl-5 space-y-1">
-                  {section.content.map((item: string, i: number) => (
+                  {(section.content||[]).map((item: string, i: number) => (
                     <li key={i}>{item}</li>
                   ))}
                 </ul>

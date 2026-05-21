@@ -9,7 +9,7 @@ interface Props {
 
 export default function Monetization({ data }: Props) {
   const items: [string, string][] = [
-    ["付费模式", data.paymentModel.join(" / ")],
+    ["付费模式", (data.paymentModel||[]).join(" / ")],
     ["定价策略", data.pricingStrategy],
     ["Battle Pass", data.battlePass],
     ["抽卡机制", data.gacha],

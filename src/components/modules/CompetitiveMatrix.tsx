@@ -13,11 +13,12 @@ interface Props {
 const RADAR_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#ef4444", "#8b5cf6"];
 
 export default function CompetitiveMatrix({ data }: Props) {
-  const { radar, timeline } = data;
+  const radar = data.radar || { dimensions: [], games: [] };
+  const timeline = data.timeline || { eras: [] };
 
-  const radarData = radar.dimensions.map((dim, i) => {
+  const radarData = (radar.dimensions||[]).map((dim, i) => {
     const entry: Record<string, string | number> = { dimension: dim };
-    radar.games.forEach((game) => {
+    (radar.games||[]).forEach((game) => {
       entry[game.name] = game.values[i] ?? 0;
     });
     return entry;
@@ -43,7 +44,7 @@ export default function CompetitiveMatrix({ data }: Props) {
                 dataKey="dimension"
                 tick={{ fill: "#86868b", fontSize: 12 }}
               />
-              {radar.games.map((game, index) => (
+              {(radar.games||[]).map((game, index) => (
                 <Radar
                   key={game.name}
                   name={game.name}
@@ -76,7 +77,7 @@ export default function CompetitiveMatrix({ data }: Props) {
           <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-[#e5e5ea]" />
 
           <div className="space-y-8">
-            {timeline.eras.map((era, eraIndex) => (
+            {(timeline.eras||[]).map((era, eraIndex) => (
               <div key={eraIndex} className="relative pl-10">
                 {/* 时间轴圆点 */}
                 <div className="absolute left-2.5 top-1.5 h-3 w-3 rounded-full bg-[#007AFF] ring-2 ring-white" />
@@ -95,7 +96,7 @@ export default function CompetitiveMatrix({ data }: Props) {
 
                   {/* 里程碑列表 */}
                   <div className="space-y-2 mb-3">
-                    {era.milestones.map((m, mi) => (
+                    {(era.milestones||[]).map((m, mi) => (
                       <div
                         key={mi}
                         className="grid grid-cols-[80px_1fr] gap-2 text-sm"

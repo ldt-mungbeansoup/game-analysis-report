@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import InputPage from "@/components/InputPage";
 import ConfirmCard from "@/components/ConfirmCard";
-import ProgressBar from "@/components/ProgressBar";
 import HistoryPanel from "@/components/HistoryPanel";
 import ProductInfo from "@/components/modules/ProductInfo";
 import GameplayAnalysis from "@/components/modules/GameplayAnalysis";
@@ -14,7 +13,7 @@ import Monetization from "@/components/modules/Monetization";
 import PlayerFeedback from "@/components/modules/PlayerFeedback";
 import CompetitiveMatrix from "@/components/modules/CompetitiveMatrix";
 import StrategyInsights from "@/components/modules/StrategyInsights";
-import { BasicInfo, ModuleId, GameAnalysis, HistoryItem, StreamEvent } from "@/types";
+import { BasicInfo, GameAnalysis, HistoryItem } from "@/types";
 import { addHistory } from "@/lib/storage";
 import { downloadPDF } from "@/lib/pdf";
 import { downloadMarkdown } from "@/lib/markdown";
@@ -27,9 +26,7 @@ export default function Home() {
   const [gameName, setGameName] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [basicInfo, setBasicInfo] = useState<BasicInfo|null>(null);
-  const [curMod, setCurMod] = useState<ModuleId|null>(null);
-  const [doneMods, setDoneMods] = useState<ModuleId[]>([]);
-  const [gd, setGd] = useState<GameAnalysis|null>(null);
+  const [result, setResult] = useState<GameAnalysis|null>(null);
   const [err, setErr] = useState("");
   const [hiOpen, setHiOpen] = useState(false);
   const [ld, setLd] = useState(false);
@@ -38,96 +35,98 @@ export default function Home() {
     setGameName(name); setCustomPrompt(custom); setErr(""); setPhase("confirming"); setLd(true);
     try {
       const r = await fetch("/api/analyze/basic", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName:name}) });
-      if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||"Search failed"); }
-      setBasicInfo(await r.json());
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error||"Search failed");
+      setBasicInfo(d);
     } catch(e: any) { setErr(e.message||"Failed"); }
     finally { setLd(false); }
   };
 
   const hConfirm = async () => {
-    setPhase("generating"); setErr(""); setDoneMods([]); setCurMod(null); setGd(null);
+    setPhase("generating"); setErr(""); setResult(null);
     try {
-      setCurMod("productInfo");
       const r = await fetch("/api/analyze", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName, customPrompt}) });
-      if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||"Analysis failed"); }
-      const events = await r.json() as StreamEvent[];
-      if (!Array.isArray(events)) throw new Error("Invalid response format");
-      let data: Record<string, any> = {};
-      for (const evt of events) {
-        if (!evt || !evt.type) continue;
-        if (evt.type === "moduleStart" && evt.moduleId) { setCurMod(evt.moduleId); await new Promise(r=>setTimeout(r,150)); }
-        else if (evt.type === "moduleData" && evt.moduleId && evt.data) { data[evt.moduleId] = evt.data; setGd({...data} as GameAnalysis); }
-        else if (evt.type === "moduleDone" && evt.moduleId) { setDoneMods(p=>[...p, evt.moduleId!]); }
-        else if (evt.type === "done") { setCurMod(null); if (Object.keys(data).length > 0) try { addHistory(gameName, data as GameAnalysis, customPrompt); } catch{} setPhase("done"); return; }
-        else if (evt.type === "error") { setErr(String(evt.data||"Error")); return; }
-      }
-      setErr("No valid analysis data received");
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error||"Analysis failed");
+      if (d.error) throw new Error(d.error);
+      const keys = Object.keys(d||{});
+      const hasData = ["productInfo","gameplay","dataAndUsers","monetization","playerFeedback","competitiveMatrix","strategyInsights"].some(k=>keys.includes(k));
+      if (!hasData) throw new Error("AI returned incomplete data. Please retry.");
+      setResult(d as GameAnalysis);
+      setPhase("done");
+      try { addHistory(gameName, d as GameAnalysis, customPrompt); } catch{}
     } catch(e: any) { console.error(e); setErr(e.message||"Analysis failed"); }
   };
 
   const hRetry = () => { setPhase("input"); setBasicInfo(null); setErr(""); };
-  const hBack = () => { setPhase("input"); setGd(null); setBasicInfo(null); setErr(""); };
-  const hLoad = (item: HistoryItem) => { setGameName(item.gameName); setCustomPrompt(item.customPrompt||""); setGd(item.data); setPhase("done"); };
-
-  const renderMod = (id: ModuleId) => {
-    if (!gd) return null;
-    const d = (gd as any)[id]; if (!d) return null;
-    const W = motion.div as any;
-    const props = { key: id, initial: {opacity:0, y:20}, animate: {opacity:1, y:0}, transition: {duration:0.4} };
-    try {
-      switch(id) {
-        case "productInfo": return <W {...props}><ProductInfo data={d} /></W>;
-        case "gameplay": return <W {...props}><GameplayAnalysis data={d} /></W>;
-        case "dataAndUsers": return <W {...props}><DataAndUsers data={d} /></W>;
-        case "monetization": return <W {...props}><Monetization data={d} /></W>;
-        case "playerFeedback": return <W {...props}><PlayerFeedback data={d} /></W>;
-        case "competitiveMatrix": return <W {...props}><CompetitiveMatrix data={d} /></W>;
-        case "strategyInsights": return <W {...props}><StrategyInsights data={d} /></W>;
-      }
-    } catch(e) { console.error("renderMod error:", id, e); }
-    return null;
-  };
-
-  const ALL_MODS: ModuleId[] = ["productInfo","gameplay","dataAndUsers","monetization","playerFeedback","competitiveMatrix","strategyInsights"];
+  const hBack = () => { setPhase("input"); setResult(null); setBasicInfo(null); setErr(""); };
+  const hLoad = (item: HistoryItem) => { setGameName(item.gameName); setCustomPrompt(item.customPrompt||""); setResult(item.data); setPhase("done"); };
 
   return (
     <>
-      {phase !== "input" && <Navbar onOpenHistory={()=>setHiOpen(true)} hasResults={phase==="done"&&!!gd} onBack={hBack} />}
+      {phase !== "input" && <Navbar onOpenHistory={()=>setHiOpen(true)} hasResults={phase==="done"&&!!result} onBack={hBack} />}
       <AnimatePresence mode="wait">
 
-        {phase === "input" && (<motion.div key="input" initial={{opacity:1}} exit={{opacity:0}}><InputPage onSubmit={hSubmit} onOpenHistory={()=>setHiOpen(true)} /></motion.div>)}
+        {phase === "input" && (
+          <motion.div key="input" initial={{opacity:1}} exit={{opacity:0}}><InputPage onSubmit={hSubmit} onOpenHistory={()=>setHiOpen(true)} /></motion.div>)}
 
-        {phase === "confirming" && (<motion.div key="confirm" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="min-h-screen bg-[#f5f5f7] flex items-center justify-center pt-14">
-          {ld ? (<div className="text-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#007AFF] border-t-transparent mx-auto mb-3" /><p className="text-sm text-[#86868b]">Searching game info...</p></div>)
-          : err ? (<div className="text-center"><p className="text-[#ff3b30] text-sm mb-3">{err}</p><button onClick={hRetry} className="text-[#007AFF] text-sm">Retry</button></div>)
-          : basicInfo ? (<ConfirmCard info={basicInfo} onConfirm={hConfirm} onRetry={hRetry} loading={false} />) : null}
-        </motion.div>)}
+        {phase === "confirming" && (
+          <motion.div key="confirm" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="min-h-screen bg-[#f5f5f7] flex items-center justify-center pt-14">
+            {ld ? (<div className="text-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#007AFF] border-t-transparent mx-auto mb-3" /><p className="text-sm text-[#86868b]">Searching...</p></div>)
+            : err ? (<div className="text-center"><p className="text-[#ff3b30] text-sm mb-3">{err}</p><button onClick={hRetry} className="text-[#007AFF] text-sm">Retry</button></div>)
+            : basicInfo ? (<ConfirmCard info={basicInfo} onConfirm={hConfirm} onRetry={hRetry} loading={false} />) : null}
+          </motion.div>)}
 
-        {phase === "generating" && (<motion.div key="gen" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 px-4">
-          <ProgressBar currentModule={curMod} completedModules={doneMods} />
-          <div className="max-w-3xl mx-auto">
-            {doneMods.length === 0 && !err && (<div className="flex flex-col items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-[#007AFF] mb-4" /><p className="text-[#86868b] text-sm">AI is generating analysis report...</p><p className="text-[#aeaeb2] text-xs mt-1">This may take 30-60 seconds</p></div>)}
-            <div className="space-y-8">
-              {ALL_MODS.map(id=>renderMod(id))}
+        {phase === "generating" && (
+          <motion.div key="gen" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 px-4">
+            <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-32">
+              {!err ? (<>
+                <Loader2 className="h-10 w-10 animate-spin text-[#007AFF] mb-4" />
+                <p className="text-[#86868b] text-base">AI is analyzing {gameName}...</p>
+                <p className="text-[#aeaeb2] text-sm mt-1">Generating 7-module analysis report, please wait</p>
+              </>) : (<>
+                <p className="text-[#ff3b30] text-sm mb-4">{err}</p>
+                <div className="flex gap-3">
+                  <button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry</button>
+                  <button onClick={hRetry} className="rounded-full bg-[#f5f5f7] px-5 py-2 text-sm font-medium text-[#1d1d1f]">Back</button>
+                </div>
+              </>)}
             </div>
-            {err && (<div className="text-center py-10"><p className="text-[#ff3b30] text-sm mb-3">{err}</p><button onClick={hRetry} className="text-[#007AFF] text-sm">Retry</button></div>)}
-          </div>
-        </motion.div>)}
+          </motion.div>)}
 
-        {phase === "done" && gd && (<motion.div key="done" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 pb-32 px-4">
-          <div className="max-w-3xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-[#1d1d1f]">{gameName} Analysis</h1>
-            <div className="flex gap-2">
-              <button onClick={()=>{try{downloadPDF(gameName,gd as any)}catch{}}} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]"><Download className="h-4 w-4"/> PDF</button>
-              <button onClick={()=>{try{downloadMarkdown(gameName,gd as any)}catch{}}} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]"><FileText className="h-4 w-4"/> MD</button>
-              <button onClick={()=>{try{addHistory(gameName,gd as any,customPrompt)}catch{}}} className="inline-flex items-center gap-1.5 rounded-full bg-[#007AFF] px-4 py-2 text-sm font-medium text-white hover:bg-[#0066d6]"><Save className="h-4 w-4"/> Save</button>
+        {phase === "done" && result && (
+          <motion.div key="done" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 pb-32 px-4">
+            <div className="max-w-3xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-3">
+              <h1 className="text-2xl font-bold text-[#1d1d1f]">{gameName}</h1>
+              <div className="flex gap-2">
+                <button onClick={()=>{try{downloadPDF(gameName,result as any)}catch(e){console.error(e)}}} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]"><Download className="h-4 w-4"/> PDF</button>
+                <button onClick={()=>{try{downloadMarkdown(gameName,result as any)}catch(e){console.error(e)}}} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]"><FileText className="h-4 w-4"/> MD</button>
+                <button onClick={()=>{try{addHistory(gameName,result as any,customPrompt)}catch(e){console.error(e)}}} className="inline-flex items-center gap-1.5 rounded-full bg-[#007AFF] px-4 py-2 text-sm font-medium text-white hover:bg-[#0066d6]"><Save className="h-4 w-4"/> Save</button>
+              </div>
             </div>
-          </div>
-          <div className="max-w-3xl mx-auto space-y-8">{ALL_MODS.map(id=>renderMod(id))}</div>
-        </motion.div>)}
+            <div className="max-w-3xl mx-auto space-y-10">
+              {!result.productInfo && !result.gameplay && !result.dataAndUsers && !result.monetization && !result.playerFeedback && !result.competitiveMatrix && !result.strategyInsights && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-[#ff3b30] mb-3">Report data is empty or incomplete. AI may have returned an unexpected response.</p>
+                  <button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry Analysis</button>
+                </div>
+              )}
+              {result.productInfo && <Section><ProductInfo data={result.productInfo as any} /></Section>}
+              {result.gameplay && <Section><GameplayAnalysis data={result.gameplay as any} /></Section>}
+              {result.dataAndUsers && <Section><DataAndUsers data={result.dataAndUsers as any} /></Section>}
+              {result.monetization && <Section><Monetization data={result.monetization as any} /></Section>}
+              {result.playerFeedback && <Section><PlayerFeedback data={result.playerFeedback as any} /></Section>}
+              {result.competitiveMatrix && <Section><CompetitiveMatrix data={result.competitiveMatrix as any} /></Section>}
+              {result.strategyInsights && <Section><StrategyInsights data={result.strategyInsights as any} /></Section>}
+            </div>
+          </motion.div>)}
 
       </AnimatePresence>
       <HistoryPanel open={hiOpen} onClose={()=>setHiOpen(false)} onLoad={hLoad} />
     </>
   );
+}
+
+function Section({ children }: { children: React.ReactNode }) {
+  return <motion.div initial={{opacity:0, y:20}} whileInView={{opacity:1, y:0}} viewport={{once:true}} transition={{duration:0.4}}>{children}</motion.div>;
 }

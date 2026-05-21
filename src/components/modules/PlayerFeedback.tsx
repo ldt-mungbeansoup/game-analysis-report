@@ -38,7 +38,7 @@ export default function PlayerFeedback({ data }: Props) {
           <h3 className="mb-3 text-sm font-semibold text-[#86868b]">商店评分趋势</h3>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.ratingTrend}>
+              <LineChart data={(data.ratingTrend||[])}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5ea" />
                 <XAxis dataKey="date" stroke="#86868b" fontSize={12} />
                 <YAxis domain={[0, 5]} stroke="#86868b" fontSize={12} />
@@ -59,7 +59,7 @@ export default function PlayerFeedback({ data }: Props) {
           <div className="rounded-2xl border border-[#e5e5ea] bg-white p-5">
             <h3 className="mb-3 text-sm font-semibold text-green-600">正面关键词</h3>
             <div className="flex flex-wrap gap-2">
-              {data.positiveKeywords.map((kw) => (
+              {(data.positiveKeywords||[]).map((kw) => (
                 <span
                   key={kw.word}
                   className="rounded-full bg-green-500/10 px-3 py-1 text-green-600"
@@ -73,7 +73,7 @@ export default function PlayerFeedback({ data }: Props) {
           <div className="rounded-2xl border border-[#e5e5ea] bg-white p-5">
             <h3 className="mb-3 text-sm font-semibold text-red-500">负面关键词</h3>
             <div className="flex flex-wrap gap-2">
-              {data.negativeKeywords.map((kw) => (
+              {(data.negativeKeywords||[]).map((kw) => (
                 <span
                   key={kw.word}
                   className="rounded-full bg-red-500/10 px-3 py-1 text-red-500"
@@ -89,7 +89,7 @@ export default function PlayerFeedback({ data }: Props) {
         <div className="mb-6 rounded-2xl border border-[#e5e5ea] bg-white p-5">
           <h3 className="mb-3 text-sm font-semibold text-[#86868b]">社区高频话题</h3>
           <div className="flex flex-wrap gap-2">
-            {data.hotTopics.map((t) => (
+            {(data.hotTopics||[]).map((t) => (
               <span
                 key={t}
                 className="rounded-md bg-[#f5f5f7] px-3 py-1 text-sm text-[#1d1d1f]"
@@ -112,7 +112,7 @@ export default function PlayerFeedback({ data }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {data.mediaReviews.map((r) => (
+                {(data.mediaReviews||[]).map((r) => (
                   <tr key={r.source} className="border-b border-[#e5e5ea]/50">
                     <td className="py-2 text-[#1d1d1f] font-medium">{r.source}</td>
                     <td className="py-2 text-[#007AFF] font-medium">{r.score}</td>
@@ -128,14 +128,14 @@ export default function PlayerFeedback({ data }: Props) {
           <div className="rounded-2xl border border-[#e5e5ea] bg-white p-5">
             <h3 className="mb-3 text-sm font-semibold text-[#86868b]">玩家核心诉求</h3>
             <ul className="list-disc pl-5 space-y-1 text-sm text-[#1d1d1f]">
-              {data.playerDemands.map((d, i) => (
+              {(data.playerDemands||[]).map((d, i) => (
                 <li key={i}>{d}</li>
               ))}
             </ul>
           </div>
           <div className="rounded-2xl border border-[#e5e5ea] bg-white p-5">
             <h3 className="mb-3 text-sm font-semibold text-[#86868b]">官方响应度</h3>
-            <p className="text-sm leading-relaxed text-[#1d1d1f]">{data.officialResponse}</p>
+            <p className="text-sm leading-relaxed text-[#1d1d1f]">{data.officialResponse||"-"}</p>
           </div>
         </div>
       </section>

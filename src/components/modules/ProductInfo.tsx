@@ -36,7 +36,7 @@ export default function ProductInfo({ data }: Props) {
               </Badge>
             }
           />
-          <InfoCard label="支持平台" value={data.platforms.join(" / ")} />
+          <InfoCard label="支持平台" value={(data.platforms||[]).join(" / ")} />
           <InfoCard label="IP 背景" value={data.ipBackground} />
         </div>
         <div className="mt-4 rounded-2xl border border-[#e5e5ea] bg-white p-4">
