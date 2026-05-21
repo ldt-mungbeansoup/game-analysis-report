@@ -33,6 +33,7 @@ export default function Home() {
   const [expandProgress, setExpandProgress] = useState({ done: 0, total: 7 });
   const [expandFailures, setExpandFailures] = useState<string[]>([]);
   const [failedModules, setFailedModules] = useState<ModuleId[]>([]);
+  const [currentModule, setCurrentModule] = useState("");
 
   const hSubmit = async (name: string, custom: string) => {
     setGameName(name); setCustomPrompt(custom); setErr(""); setPhase("confirming"); setLd(true);
@@ -72,6 +73,7 @@ export default function Home() {
     const newFailed: ModuleId[] = [];
 
     const expandOne = async (id: ModuleId) => {
+      setCurrentModule(id);
       const outlineText = typeof outline[id] === "string" ? outline[id] : JSON.stringify(outline[id]||{});
       let lastError = "";
 
@@ -97,7 +99,7 @@ export default function Home() {
       setExpandProgress(p => ({ ...p, done: p.done + 1 }));
     };
 
-    await Promise.all(moduleIds.map(expandOne));
+    for (const id of moduleIds) { await expandOne(id); }
 
     setFailedModules(newFailed);
     const finalResult = expanded as GameAnalysis;
@@ -142,7 +144,7 @@ export default function Home() {
               {!err ? (<>
                 <Loader2 className="h-10 w-10 animate-spin text-[#007AFF] mb-4" />
                 <p className="text-[#86868b] text-base">Deep analyzing {gameName}...</p>
-                <p className="text-[#aeaeb2] text-sm mt-1">Module {expandProgress.done}/{expandProgress.total} completed</p>
+                <p className="text-[#aeaeb2] text-sm mt-1">Module {expandProgress.done}/{expandProgress.total}{currentModule ? ' · Now: ' + currentModule : ''}</p>
                 <div className="w-48 h-1.5 bg-[#e5e5ea] rounded-full mt-4 overflow-hidden">
                   <div className="h-full bg-[#007AFF] rounded-full transition-all duration-300" style={{width: Math.round(expandProgress.done/expandProgress.total*100) + "%"}} />
                 </div>

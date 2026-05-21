@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { NextRequest } from "next/server";
 
 const BASE = "https://api.deepseek.com/v1";
