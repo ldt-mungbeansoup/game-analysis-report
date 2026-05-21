@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
-import { SectionId } from "@/types";
+import { ModuleId } from "@/types";
 
-export function useActiveSection(sectionIds: SectionId[]) {
-  const [activeSection, setActiveSection] = useState<SectionId>(
-    sectionIds[0] || ""
+export function useActiveSection(sectionIds: ModuleId[]) {
+  const [activeSection, setActiveSection] = useState<ModuleId>(
+    sectionIds[0] || "productInfo" as ModuleId
   );
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -14,7 +14,7 @@ export function useActiveSection(sectionIds: SectionId[]) {
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            setActiveSection(entry.target.id as SectionId);
+            setActiveSection(entry.target.id as ModuleId);
             break;
           }
         }
@@ -34,7 +34,7 @@ export function useActiveSection(sectionIds: SectionId[]) {
     const el = document.getElementById(id);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setActiveSection(id as SectionId);
+      setActiveSection(id as ModuleId);
     }
   };
 

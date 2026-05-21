@@ -2,6 +2,7 @@
 
 import type { StrategyInsightsData } from "@/types";
 import { TrendingUp, Target, ArrowUpRight, AlertTriangle, Calculator } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface Props {
   data: StrategyInsightsData;
@@ -24,25 +25,25 @@ function InsightCard({
 }: InsightCardProps) {
   return (
     <div
-      className={`rounded-lg border border-border p-5 space-y-4 ${borderColor} ${bgColor}`}
+      className={`rounded-2xl border border-[#e5e5ea] p-5 space-y-4 ${borderColor} ${bgColor}`}
     >
       <div className="flex items-center gap-2">
         <span className="shrink-0">{icon}</span>
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <h3 className="text-sm font-semibold text-[#1d1d1f]">{title}</h3>
       </div>
 
       <div>
         {Array.isArray(content) ? (
           <ul className="space-y-2">
             {content.map((item, i) => (
-              <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="text-muted-foreground mt-1 shrink-0">•</span>
+              <li key={i} className="text-sm text-[#1d1d1f] flex items-start gap-2">
+                <span className="text-[#86868b] mt-1 shrink-0">•</span>
                 <span>{item}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-foreground">{content}</p>
+          <p className="text-sm text-[#1d1d1f]">{content}</p>
         )}
       </div>
     </div>
@@ -51,8 +52,9 @@ function InsightCard({
 
 export default function StrategyInsights({ data }: Props) {
   return (
+    <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
     <section id="strategyInsights" className="scroll-mt-20 mb-16">
-      <h2 className="text-xl font-bold text-foreground mb-5">
+      <h2 className="text-xl font-bold text-[#1d1d1f] mb-5">
         ⑦ 策略启示
       </h2>
 
@@ -103,5 +105,6 @@ export default function StrategyInsights({ data }: Props) {
         />
       </div>
     </section>
+    </motion.div>
   );
 }

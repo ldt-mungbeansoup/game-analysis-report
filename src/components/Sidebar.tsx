@@ -1,11 +1,8 @@
 ﻿"use client";
 
-// 游戏竞品分析报告 — 左侧目录导航（桌面端显示）
+import type { ModuleId } from "@/types";
 
-import type { SectionId } from "@/types";
-
-/** 导航项配置 */
-const NAV_ITEMS: { id: SectionId; label: string }[] = [
+const NAV_ITEMS: { id: ModuleId; label: string }[] = [
   { id: "productInfo", label: "① 产品信息层" },
   { id: "gameplay", label: "② 核心玩法拆解" },
   { id: "dataAndUsers", label: "③ 产品数据与用户层" },
@@ -16,8 +13,8 @@ const NAV_ITEMS: { id: SectionId; label: string }[] = [
 ];
 
 interface SidebarProps {
-  activeSection: SectionId;
-  onNavigate: (id: SectionId) => void;
+  activeSection: ModuleId;
+  onNavigate: (id: ModuleId) => void;
 }
 
 export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
@@ -33,8 +30,8 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
                   onClick={() => onNavigate(item.id)}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors
                     ${isActive
-                      ? "bg-primary/15 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      ? "bg-[#007AFF]/10 text-[#007AFF] font-medium"
+                      : "text-[#86868b] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
                     }`}
                 >
                   {item.label}

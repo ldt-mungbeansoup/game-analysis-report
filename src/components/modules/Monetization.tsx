@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { MonetizationData } from "@/types";
+import { motion } from "framer-motion";
 
 interface Props {
   data: MonetizationData;
@@ -18,21 +19,28 @@ export default function Monetization({ data }: Props) {
   ];
 
   return (
-    <section id="monetization" className="mb-16 scroll-mt-20">
-      <h2 className="mb-6 text-2xl font-bold">④ 商业系统层</h2>
-      <div className="rounded-lg border border-border bg-card">
-        {items.map(([label, value], i) => (
-          <div
-            key={label}
-            className={`flex items-start gap-4 p-4 ${i < items.length - 1 ? "border-b border-border" : ""}`}
-          >
-            <dt className="w-24 shrink-0 text-sm font-medium text-muted-foreground">
-              {label}
-            </dt>
-            <dd className="text-sm leading-relaxed text-foreground/80">{value}</dd>
-          </div>
-        ))}
-      </div>
-    </section>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+    >
+      <section id="monetization" className="mb-16 scroll-mt-20">
+        <h2 className="mb-6 text-2xl font-bold text-[#1d1d1f]">④ 商业系统层</h2>
+        <div className="rounded-2xl border border-[#e5e5ea] bg-white">
+          {items.map(([label, value], i) => (
+            <div
+              key={label}
+              className={`flex items-start gap-4 p-4 ${i < items.length - 1 ? "border-b border-[#e5e5ea]" : ""}`}
+            >
+              <dt className="w-24 shrink-0 text-sm font-medium text-[#86868b]">
+                {label}
+              </dt>
+              <dd className="text-sm leading-relaxed text-[#1d1d1f]">{value}</dd>
+            </div>
+          ))}
+        </div>
+      </section>
+    </motion.div>
   );
 }
