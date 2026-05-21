@@ -82,6 +82,7 @@ export default function Home() {
           if (!r.ok || d.error) throw new Error(d.error||"Expand failed");
           if (d.data) {
             (expanded as any)[id] = d.data;
+            setExpandProgress(p => ({ ...p, done: p.done + 1 }));
             return; // success
           }
           throw new Error("No data returned");
