@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       signal: ctrl.signal,
     });
 
-    if (!res.ok) return r(502, "AI request failed");
+    if (!res.ok) { const e = await res.json().catch(() => ({})); const msg = typeof (e as Record<string,unknown>).error === "string" ? (e as Record<string,unknown>).error as string : "AI API error (" + res.status + ")"; return r(502, "DeepSeek: " + msg); }
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || "{}";
     const m = content.match(/\{[\s\S]*\}/);

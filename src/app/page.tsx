@@ -55,7 +55,7 @@ export default function Home() {
     setPhase("confirming");
     setLoadingConfirm(true);
     try {
-      const res = await fetch("/api/analyze/basic", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameName: name }) });
+      const res = await fetch("/api/analyze/basic", { signal: AbortSignal.timeout(25000), method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameName: name }) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || "获取失败"); }
       setBasicInfo(await res.json());
     } catch (e: unknown) {
@@ -74,7 +74,7 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameName, customPrompt }), signal: controller.signal });
+      const res = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameName, customPrompt }), signal: AbortSignal.any([AbortSignal.timeout(60000), controller.signal]) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || "分析失败"); }
       const reader = res.body?.getReader();
       if (!reader) throw new Error("无法读取流");
