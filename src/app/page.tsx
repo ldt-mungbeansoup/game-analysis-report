@@ -125,7 +125,7 @@ export default function Home() {
           <motion.div key="confirm" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="min-h-screen bg-[#f5f5f7] flex items-center justify-center pt-14">
             {ld ? (<div className="text-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#007AFF] border-t-transparent mx-auto mb-3" /><p className="text-sm text-[#86868b]">Searching...</p></div>)
             : err ? (<div className="text-center"><p className="text-[#ff3b30] text-sm mb-3">{err}</p><button onClick={hRetry} className="text-[#007AFF] text-sm">Retry</button></div>)
-            : basicInfo ? (<ConfirmCard info={basicInfo} onConfirm={hConfirm} onRetry={hRetry} loading={false} />) : null}
+            : basicInfo ? (<ConfirmCard info={basicInfo} onConfirm={()=>hConfirm()} onRetry={hRetry} loading={false} />) : null}
           </motion.div>)}
 
         {phase === "outlining" && (
