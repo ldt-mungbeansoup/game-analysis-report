@@ -17,7 +17,7 @@ import { BasicInfo, GameAnalysis, HistoryItem, ModuleId } from "@/types";
 import { addHistory } from "@/lib/storage";
 import { downloadPDF } from "@/lib/pdf";
 import { downloadMarkdown } from "@/lib/markdown";
-import { Download, FileText, Save, Loader2 } from "lucide-react";
+import { Download, FileText, Save, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 
 type Phase = "input" | "confirming" | "outlining" | "expanding" | "done";
 
@@ -32,6 +32,7 @@ export default function Home() {
   const [ld, setLd] = useState(false);
   const [expandProgress, setExpandProgress] = useState({ done: 0, total: 7 });
   const [expandFailures, setExpandFailures] = useState<string[]>([]);
+  const [failedModules, setFailedModules] = useState<ModuleId[]>([]);
 
   const hSubmit = async (name: string, custom: string) => {
     setGameName(name); setCustomPrompt(custom); setErr(""); setPhase("confirming"); setLd(true);
@@ -44,60 +45,68 @@ export default function Home() {
     finally { setLd(false); }
   };
 
-  const hConfirm = async () => {
-    setErr(""); setResult(null);
+  const hConfirm = async (retryIds?: ModuleId[]) => {
+    setErr("");
+    const moduleIds: ModuleId[] = retryIds || ["productInfo","gameplay","dataAndUsers","monetization","playerFeedback","competitiveMatrix","strategyInsights"];
+    const isRetry = !!retryIds;
 
-    // ---- Stage 1: Outline ----
-    setPhase("outlining");
+    // ---- Stage 1: Outline (skip on retry) ----
     let outline: Record<string, string> = {};
-    try {
-      const r1 = await fetch("/api/analyze/outline", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName, customPrompt}) });
-      const d1 = await r1.json();
-      if (!r1.ok) throw new Error(d1.error||"Outline failed");
-      if (d1.error) throw new Error(d1.error);
-      outline = d1;
-    } catch(e: any) { console.error(e); setErr("Outline: " + (e.message||"failed")); return; }
+    if (!isRetry) {
+      setPhase("outlining");
+      try {
+        const r1 = await fetch("/api/analyze/outline", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName, customPrompt}) });
+        const d1 = await r1.json();
+        if (!r1.ok) throw new Error(d1.error||"Outline failed");
+        if (d1.error) throw new Error(d1.error);
+        outline = d1;
+      } catch(e: any) { console.error(e); setErr("Outline: " + (e.message||"failed")); return; }
+    }
 
-    // ---- Stage 2: Expand 7 modules in parallel ----
+    // ---- Stage 2: Expand with per-module retry ----
     setPhase("expanding");
-    setExpandProgress({ done: 0, total: 7 });
+    setExpandProgress({ done: 0, total: moduleIds.length });
     setExpandFailures([]);
 
-    const moduleIds: ModuleId[] = ["productInfo","gameplay","dataAndUsers","monetization","playerFeedback","competitiveMatrix","strategyInsights"];
-    const expanded: Partial<GameAnalysis> = {};
-    let hasAnyFailure = false;
-    const failures: string[] = [];
+    const expanded: Partial<GameAnalysis> = isRetry ? { ...result } as Partial<GameAnalysis> : {};
+    const newFailed: ModuleId[] = [];
 
     const expandOne = async (id: ModuleId) => {
-      try {
-        const outlineText = typeof outline[id] === "string" ? outline[id] : JSON.stringify(outline[id]||{});
-        const r = await fetch("/api/analyze/expand", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ moduleId: id, gameName, outline: outlineText, customPrompt }) });
-        const d = await r.json();
-        if (!r.ok || d.error) throw new Error(d.error||"Expand failed");
-        if (d.data) (expanded as any)[id] = d.data;
-      } catch(e: any) {
-        hasAnyFailure = true;
-        failures.push(id + ": " + (e.message||"unknown"));
-      } finally {
-        setExpandProgress(p => ({ ...p, done: p.done + 1 }));
+      const outlineText = typeof outline[id] === "string" ? outline[id] : JSON.stringify(outline[id]||{});
+      let lastError = "";
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await fetch("/api/analyze/expand", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ moduleId: id, gameName, outline: outlineText, customPrompt, retryCount: attempt }) });
+          const d = await r.json();
+          if (!r.ok || d.error) throw new Error(d.error||"Expand failed");
+          if (d.data) {
+            (expanded as any)[id] = d.data;
+            return; // success
+          }
+          throw new Error("No data returned");
+        } catch(e: any) {
+          lastError = e.message||"unknown";
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+        }
       }
+      // All 3 attempts failed
+      newFailed.push(id);
+      setExpandFailures(f => [...f, id + ": " + lastError]);
+      setExpandProgress(p => ({ ...p, done: p.done + 1 }));
     };
 
     await Promise.all(moduleIds.map(expandOne));
 
-    if (hasAnyFailure) {
-      setExpandFailures(failures);
-      setErr("Some modules failed: " + failures.join(", "));
-      return;
-    }
-
+    setFailedModules(newFailed);
     const finalResult = expanded as GameAnalysis;
     setResult(finalResult);
     setPhase("done");
-    try { addHistory(gameName, finalResult, customPrompt); } catch{}
+    if (!isRetry) try { addHistory(gameName, finalResult, customPrompt); } catch{}
   };
 
   const hRetry = () => { setPhase("input"); setBasicInfo(null); setErr(""); };
+  const retryModule = (id: ModuleId) => { setPhase("expanding"); hConfirm([id]); };
   const hBack = () => { setPhase("input"); setResult(null); setBasicInfo(null); setErr(""); };
   const hLoad = (item: HistoryItem) => { setGameName(item.gameName); setCustomPrompt(item.customPrompt||""); setResult(item.data); setPhase("done"); };
 
@@ -122,7 +131,7 @@ export default function Home() {
               <Loader2 className="h-10 w-10 animate-spin text-[#007AFF] mb-4" />
               <p className="text-[#86868b] text-base">Generating report outline...</p>
               <p className="text-[#aeaeb2] text-sm mt-1">Structuring 7-module analysis framework</p>
-              {err && (<><p className="text-[#ff3b30] text-sm mt-4 mb-3">{err}</p><button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry</button></>)}
+              {err && (<><p className="text-[#ff3b30] text-sm mt-4 mb-3">{err}</p><button onClick={()=>hConfirm()} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry</button></>)}
             </div>
           </motion.div>)}
 
@@ -139,7 +148,7 @@ export default function Home() {
               </>) : (<>
                 <p className="text-[#ff3b30] text-sm mb-4">{err}</p>
                 <div className="flex gap-3">
-                  <button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry All</button>
+                  <button onClick={()=>hConfirm()} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry All</button>
                   <button onClick={hRetry} className="rounded-full bg-[#f5f5f7] px-5 py-2 text-sm font-medium text-[#1d1d1f]">Back</button>
                 </div>
               </>)}
@@ -161,16 +170,22 @@ export default function Home() {
               {!result.productInfo && !result.gameplay && !result.dataAndUsers && !result.monetization && !result.playerFeedback && !result.competitiveMatrix && !result.strategyInsights && (
                 <div className="text-center py-8">
                   <p className="text-sm text-[#ff3b30] mb-3">Report data is empty or incomplete. AI may have returned an unexpected response.</p>
-                  <button onClick={hConfirm} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry Analysis</button>
+                  <button onClick={()=>hConfirm()} className="rounded-full bg-[#007AFF] px-5 py-2 text-sm font-medium text-white">Retry Analysis</button>
                 </div>
               )}
-              {result.productInfo && <Section><ProductInfo data={result.productInfo as any} /></Section>}
-              {result.gameplay && <Section><GameplayAnalysis data={result.gameplay as any} /></Section>}
-              {result.dataAndUsers && <Section><DataAndUsers data={result.dataAndUsers as any} /></Section>}
-              {result.monetization && <Section><Monetization data={result.monetization as any} /></Section>}
-              {result.playerFeedback && <Section><PlayerFeedback data={result.playerFeedback as any} /></Section>}
-              {result.competitiveMatrix && <Section><CompetitiveMatrix data={result.competitiveMatrix as any} /></Section>}
-              {result.strategyInsights && <Section><StrategyInsights data={result.strategyInsights as any} /></Section>}
+              {failedModules.length > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                  <p className="text-sm text-amber-700">{failedModules.length} module(s) failed after 3 retries. You can retry them individually below.</p>
+                </div>
+              )}
+              <ModuleSlot id="productInfo" result={result} failedModules={failedModules} retryModule={retryModule}><ProductInfo data={result.productInfo! as any} /></ModuleSlot>
+              <ModuleSlot id="gameplay" result={result} failedModules={failedModules} retryModule={retryModule}><GameplayAnalysis data={result.gameplay! as any} /></ModuleSlot>
+              <ModuleSlot id="dataAndUsers" result={result} failedModules={failedModules} retryModule={retryModule}><DataAndUsers data={result.dataAndUsers! as any} /></ModuleSlot>
+              <ModuleSlot id="monetization" result={result} failedModules={failedModules} retryModule={retryModule}><Monetization data={result.monetization! as any} /></ModuleSlot>
+              <ModuleSlot id="playerFeedback" result={result} failedModules={failedModules} retryModule={retryModule}><PlayerFeedback data={result.playerFeedback! as any} /></ModuleSlot>
+              <ModuleSlot id="competitiveMatrix" result={result} failedModules={failedModules} retryModule={retryModule}><CompetitiveMatrix data={result.competitiveMatrix! as any} /></ModuleSlot>
+              <ModuleSlot id="strategyInsights" result={result} failedModules={failedModules} retryModule={retryModule}><StrategyInsights data={result.strategyInsights! as any} /></ModuleSlot>
             </div>
           </motion.div>)}
 
@@ -178,6 +193,20 @@ export default function Home() {
       <HistoryPanel open={hiOpen} onClose={()=>setHiOpen(false)} onLoad={hLoad} />
     </>
   );
+}
+
+function ModuleSlot({ id, result, failedModules, retryModule, children }: { id: ModuleId; result: GameAnalysis; failedModules: ModuleId[]; retryModule: (id: ModuleId) => void; children: React.ReactNode }) {
+  if (result[id]) return <Section>{children}</Section>;
+  if (failedModules.includes(id)) return (
+    <Section>
+      <div className="rounded-2xl border border-[#e5e5ea] bg-white p-6 text-center">
+        <AlertTriangle className="h-6 w-6 text-amber-500 mx-auto mb-2" />
+        <p className="text-sm text-[#86868b] mb-3">Module failed after 3 attempts</p>
+        <button onClick={() => retryModule(id)} className="inline-flex items-center gap-1.5 rounded-full bg-[#007AFF] px-4 py-2 text-sm font-medium text-white hover:bg-[#0066d6]"><RefreshCw className="h-4 w-4" /> Retry Module</button>
+      </div>
+    </Section>
+  );
+  return null;
 }
 
 function Section({ children }: { children: React.ReactNode }) {

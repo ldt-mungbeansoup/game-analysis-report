@@ -24,15 +24,18 @@ const MODULE_PROMPTS: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const b = await request.json() as { moduleId?: string; gameName?: string; outline?: string; customPrompt?: string };
-    const { moduleId, gameName, outline, customPrompt } = b;
+    const b = await request.json() as { moduleId?: string; gameName?: string; outline?: string; customPrompt?: string; retryCount?: number };
+    const { moduleId, gameName, outline, customPrompt, retryCount } = b;
     if (!moduleId || !gameName) return json({ error: "Missing moduleId or gameName" }, 400);
 
     const apiKey = process.env.DEEPSEEK_API_KEY || "";
     if (!apiKey) return json({ error: "No API Key" }, 500);
 
-    const modulePrompt = MODULE_PROMPTS[moduleId];
+    let modulePrompt = MODULE_PROMPTS[moduleId];
     if (!modulePrompt) return json({ error: "Unknown module: " + moduleId }, 400);
+    if (retryCount && retryCount > 0) {
+      modulePrompt = "[RETRY #" + retryCount + " - PREVIOUS ATTEMPT FAILED DUE TO INVALID JSON FORMAT] " + modulePrompt + " CRITICAL: You MUST output ONLY a valid JSON object. No markdown code fences, no explanatory text, no trailing commas. The response must start with { and end with }. Your previous response could not be parsed as JSON. This is your last chance.";
+    }
 
     const userMsg = outline
       ? "Game: " + gameName + ". Outline to expand: " + outline + (customPrompt ? ". Additional context: " + customPrompt : "")
