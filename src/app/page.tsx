@@ -1,7 +1,6 @@
 "use client";
-import React from "react";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import InputPage from "@/components/InputPage";
@@ -22,98 +21,107 @@ import { downloadMarkdown } from "@/lib/markdown";
 import { Download, FileText, Save } from "lucide-react";
 
 type Phase = "input" | "confirming" | "generating" | "done";
-type MC = React.FC<{ data: Record<string, unknown> }>;
-
-const MODS = [
-  { id: "productInfo" as ModuleId, c: ProductInfo as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.developer === "string"; } },
-  { id: "gameplay" as ModuleId, c: GameplayAnalysis as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.coreLoop === "string"; } },
-  { id: "dataAndUsers" as ModuleId, c: DataAndUsers as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.marketPerformance === "object"; } },
-  { id: "monetization" as ModuleId, c: Monetization as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.paymentModel === "object"; } },
-  { id: "playerFeedback" as ModuleId, c: PlayerFeedback as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.ratingTrend === "object"; } },
-  { id: "competitiveMatrix" as ModuleId, c: CompetitiveMatrix as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.radar === "object"; } },
-  { id: "strategyInsights" as ModuleId, c: StrategyInsights as unknown as MC, ok: function(d: Record<string, unknown>) { return typeof d.marketOpportunity === "string"; } },
-];
-
 
 export default function Home() {
-  const [phase, setPhase] = useState<Phase>("input");
-  const [gameName, setGameName] = useState("");
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [basicInfo, setBasicInfo] = useState<BasicInfo | null>(null);
-  const [curMod, setCurMod] = useState<ModuleId | null>(null);
-  const [doneMods, setDoneMods] = useState<ModuleId[]>([]);
-  const [gd, setGd] = useState<GameAnalysis | null>(null);
-  const [err, setErr] = useState("");
-  const [hiOpen, setHiOpen] = useState(false);
-  const [ld, setLd] = useState(false);
-  const abt = useRef<AbortController | null>(null);
+  const [phase, setPhase] = React.useState<Phase>("input");
+  const [gameName, setGameName] = React.useState("");
+  const [customPrompt, setCustomPrompt] = React.useState("");
+  const [basicInfo, setBasicInfo] = React.useState<BasicInfo|null>(null);
+  const [curMod, setCurMod] = React.useState<ModuleId|null>(null);
+  const [doneMods, setDoneMods] = React.useState<ModuleId[]>([]);
+  const [gd, setGd] = React.useState<GameAnalysis|null>(null);
+  const [err, setErr] = React.useState("");
+  const [hiOpen, setHiOpen] = React.useState(false);
+  const [ld, setLd] = React.useState(false);
 
   const hSubmit = async (name: string, custom: string) => {
     setGameName(name); setCustomPrompt(custom); setErr(""); setPhase("confirming"); setLd(true);
     try {
-      const r = await fetch("/api/analyze/basic", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameName: name }), signal: AbortSignal.timeout(30000) });
-      if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Failed"); }
+      const r = await fetch("/api/analyze/basic", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName:name}) });
+      if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||"Search failed"); }
       setBasicInfo(await r.json());
-    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    } catch(e) { setErr(e instanceof Error ? e.message : "Failed"); }
     finally { setLd(false); }
   };
 
   const hConfirm = async () => {
     setPhase("generating"); setErr(""); setDoneMods([]); setCurMod(null); setGd(null);
     try {
-      const r = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameName, customPrompt }) });
-      if (!r.ok) { const e = await r.json().catch(function() { return {}; }); throw new Error(e.error || "API failed"); }
+      const r = await fetch("/api/analyze", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({gameName, customPrompt}) });
+      if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||"Analysis failed"); }
       const events = await r.json() as StreamEvent[];
+      let data: Partial<GameAnalysis> = {};
       for (const evt of events) {
-        if (evt.type === "moduleStart" && evt.moduleId) { setCurMod(evt.moduleId); await new Promise(function(r) { setTimeout(r, 100); }); }
-        else if (evt.type === "moduleData" && evt.moduleId && evt.data) { setGd(function(p) { return { ...p, [evt.moduleId!]: evt.data } as GameAnalysis; }); }
-        else if (evt.type === "moduleDone" && evt.moduleId) setDoneMods(function(p) { return [...p, evt.moduleId!]; });
-        else if (evt.type === "done") { setCurMod(null); setGd(function(p) { if (p) addHistory(gameName, p, customPrompt); return p; }); setPhase("done"); }
-        else if (evt.type === "error") setErr(String(evt.data || "Error"));
+        if (evt.type === "moduleStart" && evt.moduleId) { setCurMod(evt.moduleId); await new Promise(r=>setTimeout(r,200)); }
+        else if (evt.type === "moduleData" && evt.moduleId && evt.data) { data = {...data, [evt.moduleId]: evt.data}; setGd(data as GameAnalysis); }
+        else if (evt.type === "moduleDone" && evt.moduleId) { setDoneMods(p=>[...p, evt.moduleId!]); }
+        else if (evt.type === "done") { setCurMod(null); if (Object.keys(data).length > 0) addHistory(gameName, data as GameAnalysis, customPrompt); setPhase("done"); return; }
+        else if (evt.type === "error") { setErr(String(evt.data||"Error")); return; }
       }
-      if (!events.length) setErr("No analysis data received");
-    } catch (e) { setErr(e instanceof Error ? e.message : "Analysis failed"); }
+      if (phase !== "done") setErr("Analysis completed but no results");
+    } catch(e) { setErr(e instanceof Error ? e.message : "Failed"); }
   };
-  const hRetry = function() { setPhase("input"); setBasicInfo(null); setErr(""); };
-  const hBack = function() { abt.current?.abort(); setPhase("input"); setGd(null); setBasicInfo(null); setErr(""); };
-  const hLoad = function(item: HistoryItem) { setGameName(item.gameName); setCustomPrompt(item.customPrompt || ""); setGd(item.data); setPhase("done"); };
 
-  return React.createElement(React.Fragment, null,
-    phase !== "input" && React.createElement(Navbar, { onOpenHistory: function() { setHiOpen(true); }, hasResults: phase === "done" && !!gd, onBack: hBack }),
-    React.createElement(AnimatePresence, { mode: "wait" },
-      phase === "input" && React.createElement(motion.div, { key: "input", initial: { opacity: 1 }, exit: { opacity: 0 } },
-        React.createElement(InputPage, { onSubmit: hSubmit, onOpenHistory: function() { setHiOpen(true); } })
-      ),
-      phase === "confirming" && React.createElement(motion.div, { key: "confirm", initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, className: "min-h-screen bg-[#f5f5f7] flex items-center justify-center pt-14" },
-        ld ? React.createElement("div", { className: "text-center" },
-          React.createElement("div", { className: "animate-spin rounded-full h-8 w-8 border-2 border-[#007AFF] border-t-transparent mx-auto mb-3" }),
-          React.createElement("p", { className: "text-sm text-[#86868b]" }, "Searching...")
-        ) : err ? React.createElement("div", { className: "text-center" },
-          React.createElement("p", { className: "text-[#ff3b30] text-sm mb-3" }, err),
-          React.createElement("button", { onClick: hRetry, className: "text-[#007AFF] text-sm" }, "Retry")
-        ) : basicInfo ? React.createElement(ConfirmCard, { info: basicInfo, onConfirm: hConfirm, onRetry: hRetry, loading: false }) : null
-      ),
-      phase === "generating" && React.createElement(motion.div, { key: "gen", initial: { opacity: 0 }, animate: { opacity: 1 }, className: "min-h-screen bg-[#f5f5f7] pt-20 px-4" },
-        React.createElement(ProgressBar, { currentModule: curMod, completedModules: doneMods }),
-        React.createElement("div", { className: "max-w-3xl mx-auto space-y-8" },
-          MODS.map(function(m) { const d = gd?.[m.id]; if (!d || !m.ok(d as unknown as Record<string, unknown>)) return null; return React.createElement(motion.div, { key: m.id, initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } }, React.createElement(m.c, { data: d as unknown as Record<string, unknown> })); }),
-          err && React.createElement("p", { className: "text-[#ff3b30] text-sm text-center" }, err)
-        )
-      ),
-      phase === "done" && gd && React.createElement(motion.div, { key: "done", initial: { opacity: 0 }, animate: { opacity: 1 }, className: "min-h-screen bg-[#f5f5f7] pt-20 pb-32 px-4" },
-        React.createElement("div", { className: "max-w-3xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-3" },
-          React.createElement("h1", { className: "text-2xl font-bold text-[#1d1d1f]" }, gameName),
-          React.createElement("div", { className: "flex gap-2" },
-            React.createElement("button", { onClick: function() { downloadPDF(gameName, gd); }, className: "inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]" }, React.createElement(Download, { className: "h-4 w-4" }), " PDF"),
-            React.createElement("button", { onClick: function() { downloadMarkdown(gameName, gd); }, className: "inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]" }, React.createElement(FileText, { className: "h-4 w-4" }), " MD"),
-            React.createElement("button", { onClick: function() { addHistory(gameName, gd, customPrompt); }, className: "inline-flex items-center gap-1.5 rounded-full bg-[#007AFF] px-4 py-2 text-sm font-medium text-white hover:bg-[#0066d6]" }, React.createElement(Save, { className: "h-4 w-4" }), " Save")
-          )
-        ),
-        React.createElement("div", { className: "max-w-3xl mx-auto space-y-8" },
-          MODS.map(function(m) { const d = gd[m.id]; if (!d || !m.ok(d as unknown as Record<string, unknown>)) return null; return React.createElement(motion.div, { key: m.id, initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.4 } }, React.createElement(m.c, { data: d as unknown as Record<string, unknown> })); })
-        )
-      )
-    ),
-    React.createElement(HistoryPanel, { open: hiOpen, onClose: function() { setHiOpen(false); }, onLoad: hLoad })
+  const hRetry = () => { setPhase("input"); setBasicInfo(null); setErr(""); };
+  const hBack = () => { setPhase("input"); setGd(null); setBasicInfo(null); setErr(""); };
+  const hLoad = (item: HistoryItem) => { setGameName(item.gameName); setCustomPrompt(item.customPrompt||""); setGd(item.data); setPhase("done"); };
+
+  const renderModule = (id: ModuleId) => {
+    if (!gd) return null;
+    const d = gd[id]; if (!d) return null;
+    const W = motion.div;
+    switch(id) {
+      case "productInfo": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><ProductInfo data={d as any} /></W>;
+      case "gameplay": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><GameplayAnalysis data={d as any} /></W>;
+      case "dataAndUsers": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><DataAndUsers data={d as any} /></W>;
+      case "monetization": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><Monetization data={d as any} /></W>;
+      case "playerFeedback": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><PlayerFeedback data={d as any} /></W>;
+      case "competitiveMatrix": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><CompetitiveMatrix data={d as any} /></W>;
+      case "strategyInsights": return <W key={id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}}><StrategyInsights data={d as any} /></W>;
+      default: return null;
+    }
+  };
+
+  return (
+    <>
+      {phase !== "input" && <Navbar onOpenHistory={()=>setHiOpen(true)} hasResults={phase==="done"&&!!gd} onBack={hBack} />}
+      <AnimatePresence mode="wait">
+        {phase === "input" && (
+          <motion.div key="input" initial={{opacity:1}} exit={{opacity:0}}>
+            <InputPage onSubmit={hSubmit} onOpenHistory={()=>setHiOpen(true)} />
+          </motion.div>)}
+        {phase === "confirming" && (
+          <motion.div key="confirm" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="min-h-screen bg-[#f5f5f7] flex items-center justify-center pt-14">
+            {ld ? (<div className="text-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#007AFF] border-t-transparent mx-auto mb-3" /><p className="text-sm text-[#86868b]">Searching...</p></div>)
+            : err ? (<div className="text-center"><p className="text-[#ff3b30] text-sm mb-3">{err}</p><button onClick={hRetry} className="text-[#007AFF] text-sm">Retry</button></div>)
+            : basicInfo ? (<ConfirmCard info={basicInfo} onConfirm={hConfirm} onRetry={hRetry} loading={false} />) : null}
+          </motion.div>)}
+        {phase === "generating" && (
+          <motion.div key="gen" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 px-4">
+            <ProgressBar currentModule={curMod} completedModules={doneMods} />
+            <div className="max-w-3xl mx-auto space-y-8">
+              {renderModule("productInfo")}{renderModule("gameplay")}{renderModule("dataAndUsers")}{renderModule("monetization")}
+              {renderModule("playerFeedback")}{renderModule("competitiveMatrix")}{renderModule("strategyInsights")}
+              {err && <p className="text-[#ff3b30] text-sm text-center mt-4">{err}</p>}
+            </div>
+          </motion.div>)}
+        {phase === "done" && gd && (
+          <motion.div key="done" initial={{opacity:0}} animate={{opacity:1}} className="min-h-screen bg-[#f5f5f7] pt-20 pb-32 px-4">
+            <div className="max-w-3xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-3">
+              <h1 className="text-2xl font-bold text-[#1d1d1f]">{gameName}</h1>
+              <div className="flex gap-2">
+                <button onClick={()=>downloadPDF(gameName,gd)} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]"><Download className="h-4 w-4"/> PDF</button>
+                <button onClick={()=>downloadMarkdown(gameName,gd)} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-4 py-2 text-sm font-medium text-[#1d1d1f] hover:bg-[#e8e8ed]"><FileText className="h-4 w-4"/> MD</button>
+                <button onClick={()=>addHistory(gameName,gd,customPrompt)} className="inline-flex items-center gap-1.5 rounded-full bg-[#007AFF] px-4 py-2 text-sm font-medium text-white hover:bg-[#0066d6]"><Save className="h-4 w-4"/> Save</button>
+              </div>
+            </div>
+            <div className="max-w-3xl mx-auto space-y-8">
+              {renderModule("productInfo")}{renderModule("gameplay")}{renderModule("dataAndUsers")}{renderModule("monetization")}
+              {renderModule("playerFeedback")}{renderModule("competitiveMatrix")}{renderModule("strategyInsights")}
+            </div>
+          </motion.div>)}
+      </AnimatePresence>
+      <HistoryPanel open={hiOpen} onClose={()=>setHiOpen(false)} onLoad={hLoad} />
+    </>
   );
 }
