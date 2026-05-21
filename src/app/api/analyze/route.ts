@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
               const c = JSON.parse(j) as { choices?: { delta?: { content?: string } }[] };
               const ct = c.choices?.[0]?.delta?.content;
               if (ct) controller.enqueue(encoder.encode(ct));
-            } catch (_e) { /* skip */ }
+            } catch { /* skip */ }
           }
         }
       } catch (e) {
